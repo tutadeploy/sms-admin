@@ -100,6 +100,11 @@ if ! docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .; then
     exit 1
 fi
 
+# 创建临时环境变量文件
+echo "Creating temporary environment file..."
+TEMP_ENV="/tmp/sms-admin.env"
+cp .env ${TEMP_ENV}
+
 # 运行新容器
 echo "Starting new container..."
 if ! docker run -d \
@@ -111,10 +116,11 @@ if ! docker run -d \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /usr/local/bin/pm2:/usr/local/bin/pm2 \
     -v ${LOG_DIR}:/app/logs \
-    -v $(pwd)/.env:/app/.env \
+    -v ${TEMP_ENV}:/app/.env \
     -e PM2_HOME=/root/.pm2 \
     ${DOCKER_IMAGE}:${DOCKER_TAG}; then
     echo "Error: Failed to start container"
+    rm -f ${TEMP_ENV}
     exit 1
 fi
 
@@ -126,6 +132,7 @@ sleep 10
 if ! docker ps -q --filter "name=${DOCKER_IMAGE}" >/dev/null; then
     echo "Error: Container failed to start. Checking logs..."
     docker logs ${DOCKER_IMAGE}
+    rm -f ${TEMP_ENV}
     exit 1
 fi
 
@@ -133,6 +140,7 @@ fi
 if ! docker ps -q --filter "name=${DOCKER_IMAGE}" --filter "health=healthy" >/dev/null; then
     echo "Error: Container is not healthy. Checking logs..."
     docker logs ${DOCKER_IMAGE}
+    rm -f ${TEMP_ENV}
     exit 1
 fi
 
@@ -142,6 +150,7 @@ if ! pm2 restart ${DOCKER_IMAGE} 2>/dev/null; then
     echo "Starting new PM2 process..."
     if ! pm2 start docker --name ${DOCKER_IMAGE} -- run ${DOCKER_IMAGE}:${DOCKER_TAG}; then
         echo "Error: Failed to start PM2 process"
+        rm -f ${TEMP_ENV}
         exit 1
     fi
 fi
@@ -155,5 +164,8 @@ if [ -w "/var/log/sms-admin" ]; then
     cp ${TEMP_LOG} "/var/log/sms-admin/deploy.log" 2>/dev/null || true
     cp ${TEMP_ERROR_LOG} "/var/log/sms-admin/deploy.error.log" 2>/dev/null || true
 fi
+
+# 清理临时文件
+rm -f ${TEMP_ENV}
 
 echo "Deployment completed successfully!"

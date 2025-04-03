@@ -18,6 +18,12 @@ DOCKER_TAG="7"
 BACKUP_DIR="/var/backups/${DOCKER_IMAGE}"
 LOG_DIR="/var/log/${DOCKER_IMAGE}"
 
+# 安装必要的工具
+if ! command -v lsof >/dev/null 2>&1; then
+    echo "Installing lsof..."
+    apt-get update && apt-get install -y lsof
+fi
+
 # 检查必要的命令
 command -v docker >/dev/null 2>&1 || {
     echo "Docker is required but not installed. Aborting." >&2
@@ -40,7 +46,7 @@ fi
 
 echo "Starting deployment process..."
 
-# 备份当前版本
+# 备份当前版本（如果容器存在）
 if docker ps -q --filter "name=${DOCKER_IMAGE}" >/dev/null; then
     echo "Backing up current version..."
     docker commit ${DOCKER_IMAGE} ${DOCKER_IMAGE}:backup-$(date +%Y%m%d-%H%M%S)
@@ -50,10 +56,12 @@ fi
 echo "Building Docker image..."
 docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
 
-# 停止并删除旧容器
-echo "Stopping and removing old container..."
-docker stop ${DOCKER_IMAGE} || true
-docker rm ${DOCKER_IMAGE} || true
+# 停止并删除旧容器（如果存在）
+if docker ps -q --filter "name=${DOCKER_IMAGE}" >/dev/null; then
+    echo "Stopping and removing old container..."
+    docker stop ${DOCKER_IMAGE} || true
+    docker rm ${DOCKER_IMAGE} || true
+fi
 
 # 运行新容器
 echo "Starting new container..."

@@ -11,6 +11,9 @@ RUN npm install
 # 复制源代码
 COPY . .
 
+# 构建前端
+RUN npm run build
+
 # 运行阶段
 FROM node:20.18.0-alpine
 WORKDIR /app
@@ -25,6 +28,7 @@ RUN echo $TZ >/etc/timezone
 RUN npm install -g pm2
 
 # 从构建阶段复制文件
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package*.json ./

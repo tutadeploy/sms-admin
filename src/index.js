@@ -10,7 +10,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 静态文件服务
-app.use(express.static(path.join(__dirname, '../')));
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// 所有路由都返回index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
 
 // API路由
 app.get('/api/status', (req, res) => {

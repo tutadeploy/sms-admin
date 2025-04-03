@@ -10,8 +10,11 @@ trap 'echo "Error occurred at line $LINENO. Command: $BASH_COMMAND"; exit 1' ERR
 # 设置日志文件
 LOG_DIR="/var/log/sms-admin"
 mkdir -p ${LOG_DIR}
-exec 1> >(tee -a "${LOG_DIR}/deploy.log")
-exec 2> >(tee -a "${LOG_DIR}/deploy.error.log" >&2)
+# 使用临时文件进行日志记录，避免权限问题
+TEMP_LOG="/tmp/deploy.log"
+TEMP_ERROR_LOG="/tmp/deploy.error.log"
+exec 1> >(tee -a "${TEMP_LOG}")
+exec 2> >(tee -a "${TEMP_ERROR_LOG}" >&2)
 
 # 加载环境变量
 if [ ! -f .env ]; then
@@ -34,9 +37,9 @@ DOCKER_IMAGE="sms-admin"
 DOCKER_TAG="7"
 BACKUP_DIR="/var/backups/${DOCKER_IMAGE}"
 
-# 检查 Docker 服务状态
-if ! systemctl is-active --quiet docker; then
-    echo "Error: Docker service is not running"
+# 检查 Docker 服务状态（容器环境兼容的方式）
+if ! docker info >/dev/null 2>&1; then
+    echo "Error: Docker daemon is not accessible"
     exit 1
 fi
 
@@ -70,8 +73,9 @@ mkdir -p ${LOG_DIR}
 
 # 检查目录权限
 if [ ! -w "${LOG_DIR}" ]; then
-    echo "Error: No write permission for log directory: ${LOG_DIR}"
-    exit 1
+    echo "Warning: No write permission for log directory: ${LOG_DIR}, using temporary directory"
+    LOG_DIR="/tmp/sms-admin-logs"
+    mkdir -p ${LOG_DIR}
 fi
 
 # 检查端口占用
@@ -145,5 +149,11 @@ fi
 # 清理旧镜像
 echo "Cleaning up old images..."
 docker image prune -f
+
+# 复制日志到最终位置（如果可能）
+if [ -w "/var/log/sms-admin" ]; then
+    cp ${TEMP_LOG} "/var/log/sms-admin/deploy.log" 2>/dev/null || true
+    cp ${TEMP_ERROR_LOG} "/var/log/sms-admin/deploy.error.log" 2>/dev/null || true
+fi
 
 echo "Deployment completed successfully!"

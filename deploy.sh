@@ -7,11 +7,16 @@ set -x
 set -e
 trap 'echo "Error occurred at line $LINENO"; exit 1' ERR
 
+# 加载环境变量
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
 # 设置变量
-DOCKER_IMAGE="austin-link"
+DOCKER_IMAGE="sms-admin"
 DOCKER_TAG="7"
-BACKUP_DIR="/var/backups/austin-link"
-LOG_DIR="/var/log/austin-link"
+BACKUP_DIR="/var/backups/${DOCKER_IMAGE}"
+LOG_DIR="/var/log/${DOCKER_IMAGE}"
 
 # 检查必要的命令
 command -v docker >/dev/null 2>&1 || {
@@ -28,8 +33,8 @@ mkdir -p ${BACKUP_DIR}
 mkdir -p ${LOG_DIR}
 
 # 检查端口占用
-if lsof -i :8091 >/dev/null; then
-    echo "Port 8091 is already in use. Please check and free the port."
+if lsof -i :${PORT} >/dev/null; then
+    echo "Port ${PORT} is already in use. Please check and free the port."
     exit 1
 fi
 
@@ -54,8 +59,10 @@ docker rm ${DOCKER_IMAGE} || true
 echo "Starting new container..."
 docker run -d \
     --name ${DOCKER_IMAGE} \
-    -p 8091:8091 \
+    -p ${PORT}:${PORT} \
     --restart unless-stopped \
+    --memory=${CONTAINER_MEMORY} \
+    --cpus=${CONTAINER_CPUS} \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /usr/local/bin/pm2:/usr/local/bin/pm2 \
     -v ${LOG_DIR}:/app/logs \

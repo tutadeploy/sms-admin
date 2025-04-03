@@ -1,7 +1,7 @@
 {
-  "name": "austin-link",
+  "name": "sms-admin",
   "version": "1.0.0",
-  "description": "Austin Link Service",
+  "description": "SMS Admin Service",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -9,10 +9,9 @@
     "test": "jest"
   },
   "keywords": [
-    "amis",
-    "boilerplate",
+    "sms",
     "admin",
-    "react"
+    "service"
   ],
   "author": "fex",
   "license": "MIT",

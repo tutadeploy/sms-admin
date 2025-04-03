@@ -41,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=3s \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8091/api/status || exit 1
 
 # 启动命令
-CMD ["pm2-runtime", "start", "src/index.js", "--name", "sms-admin"]
+CMD ["node", "src/index.js"]

@@ -128,14 +128,6 @@ if ! docker ps -q --filter "name=${DOCKER_IMAGE}" >/dev/null; then
     exit 1
 fi
 
-# 启动应用
-echo "Starting application..."
-if ! docker exec ${DOCKER_IMAGE} npm start; then
-    echo "Error: Failed to start application"
-    docker logs ${DOCKER_IMAGE}
-    exit 1
-fi
-
 # 检查容器健康状态
 if ! docker ps -q --filter "name=${DOCKER_IMAGE}" --filter "health=healthy" >/dev/null; then
     echo "Error: Container is not healthy. Checking logs..."

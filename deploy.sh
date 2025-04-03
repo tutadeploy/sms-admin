@@ -62,10 +62,6 @@ command -v docker >/dev/null 2>&1 || {
     echo "Error: Docker is required but not installed. Aborting." >&2
     exit 1
 }
-command -v pm2 >/dev/null 2>&1 || {
-    echo "Error: PM2 is required but not installed. Aborting." >&2
-    exit 1
-}
 
 # 创建必要的目录
 mkdir -p ${BACKUP_DIR}
@@ -109,7 +105,6 @@ if ! docker run -d \
     --memory=${CONTAINER_MEMORY} \
     --cpus=${CONTAINER_CPUS} \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /usr/local/bin/pm2:/usr/local/bin/pm2 \
     -v ${LOG_DIR}:/app/logs \
     -e PORT=${PORT} \
     -e NODE_ENV=${NODE_ENV} \
@@ -117,7 +112,6 @@ if ! docker run -d \
     -e APP_VERSION=${APP_VERSION} \
     -e LOG_LEVEL=${LOG_LEVEL} \
     -e TZ=${TZ} \
-    -e PM2_HOME=/root/.pm2 \
     ${DOCKER_IMAGE}:${DOCKER_TAG}; then
     echo "Error: Failed to start container"
     exit 1
@@ -139,16 +133,6 @@ if ! docker ps -q --filter "name=${DOCKER_IMAGE}" --filter "health=healthy" >/de
     echo "Error: Container is not healthy. Checking logs..."
     docker logs ${DOCKER_IMAGE}
     exit 1
-fi
-
-# 使用PM2管理
-echo "Managing with PM2..."
-if ! pm2 restart ${DOCKER_IMAGE} 2>/dev/null; then
-    echo "Starting new PM2 process..."
-    if ! pm2 start docker --name ${DOCKER_IMAGE} -- run ${DOCKER_IMAGE}:${DOCKER_TAG}; then
-        echo "Error: Failed to start PM2 process"
-        exit 1
-    fi
 fi
 
 # 清理旧镜像

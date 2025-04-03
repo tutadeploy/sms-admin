@@ -1,12 +1,4 @@
 {
-    "watch": [
-        "src",
-        "pages",
-        "public"
-    ],
-    "ext": "js,json,html,css",
-    "ignore": [
-        "node_modules/"
-    ],
-    "exec": "node src/index.js"
+  "verbose": true,
+  "ignore": ["node_modules/*"]
 }

@@ -6,13 +6,10 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装依赖
-RUN npm install
+RUN npm ci --only=production
 
 # 复制源代码
 COPY . .
-
-# 构建前端
-RUN npm run build
 
 # 运行阶段
 FROM node:20.18.0-alpine
@@ -28,21 +25,28 @@ RUN echo $TZ >/etc/timezone
 RUN npm install -g pm2
 
 # 从构建阶段复制文件
-COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
+COPY --from=builder /app/server.js ./server.js
+COPY --from=builder /app/index.html ./index.html
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/pages ./pages
+COPY --from=builder /app/sdk ./sdk
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/.env ./.env
 
-# 创建日志目录
+# 创建日志目录并设置权限
 RUN mkdir -p /app/logs
+RUN chown -R node:node /app/logs
+
+# 切换到非root用户
+USER node
 
 # 暴露端口
 EXPOSE 8091
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8091/api/status || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8091/ || exit 1
 
 # 启动命令
-CMD ["node", "src/index.js"]
+CMD ["pm2-runtime", "server.js"]

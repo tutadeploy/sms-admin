@@ -1,0 +1,27 @@
+{
+  "name": "austin-link",
+  "version": "1.0.0",
+  "description": "Austin Link Service",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "amis",
+    "boilerplate",
+    "admin",
+    "react"
+  ],
+  "author": "fex",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "nodemon": "^2.0.22"
+  }
+}

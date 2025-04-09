@@ -1,0 +1,10 @@
+/build/
+/config/
+/dist/
+/*.js
+/test/unit/coverage/
+/node_modules/*
+/dist*
+/src/main.ts
+src/components/Tinyflow/ui/index.js
+src/components/Tinyflow/ui/index.umd.js

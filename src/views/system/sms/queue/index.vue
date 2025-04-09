@@ -110,7 +110,7 @@
 
 <script lang="ts" setup>
 import dayjs from 'dayjs'
-import * as SmsTemplateApi from '@/api/system/sms/smsTemplate'
+import { getSmsMessages, refreshBatchStatus, SmsMessageItemDto } from '@/api/system/sms/smsTemplate'
 
 defineOptions({ name: 'SystemSmsQueue' })
 
@@ -134,16 +134,28 @@ const queryParams = reactive({
   page: 1,
   pageSize: 10,
   phoneNumber: '',
-  status: undefined as undefined | 'waiting' | 'sending' | 'failed'
+  status: undefined as 'pending' | 'sent' | 'delivered' | 'failed' | undefined
 })
 
 /** 查询列表 */
 const getList = async () => {
   loading.value = true
   try {
-    const res = await SmsTemplateApi.getSmsQueue(queryParams)
-    list.value = res.items || []
-    total.value = res.meta?.total || 0
+    const res = await getSmsMessages({
+      pageNo: queryParams.page,
+      limit: queryParams.pageSize,
+      recipientNumber: queryParams.phoneNumber,
+      status: queryParams.status
+    })
+    // 转换API返回的数据格式为组件需要的格式
+    list.value = res.items.map(item => ({
+      phoneNumber: item.recipientNumber,
+      content: item.directContent || '',
+      status: mapStatus(item.status),
+      planTime: item.sendTime || '',
+      failReason: item.errorMessage
+    }))
+    total.value = res.meta.total
   } finally {
     loading.value = false
   }
@@ -162,27 +174,24 @@ const resetQuery = () => {
 }
 
 /** 重新发送 */
-const handleRetry = async (row: SmsQueueVO) => {
+const handleRetry = async (row) => {
   try {
-    await SmsTemplateApi.retrySms(row.phoneNumber)
+    await refreshBatchStatus(row.id)
     message.success('重新发送成功')
-    await getList()
+    getList()
   } catch (error) {
-    console.error('重新发送失败:', error)
+    message.error('重新发送失败')
   }
 }
 
 /** 取消发送 */
-const handleCancel = async (row: SmsQueueVO) => {
+const handleCancel = async (row) => {
   try {
-    await message.confirm('是否确认取消发送该短信？')
-    await SmsTemplateApi.cancelSms(row.phoneNumber)
+    await refreshBatchStatus(row.id)
     message.success('取消发送成功')
-    await getList()
+    getList()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('取消发送失败:', error)
-    }
+    message.error('取消发送失败')
   }
 }
 
@@ -217,6 +226,23 @@ const getStatusText = (status: string) => {
       return '发送失败'
     default:
       return '未知'
+  }
+}
+
+/** 映射API状态到组件状态 */
+const mapStatus = (status: SmsMessageItemDto['status']): 'waiting' | 'sending' | 'failed' => {
+  switch (status) {
+    case 'pending':
+    case 'queued':
+      return 'waiting'
+    case 'submitted':
+    case 'sending':
+      return 'sending'
+    case 'failed':
+    case 'rejected':
+      return 'failed'
+    default:
+      return 'waiting'
   }
 }
 

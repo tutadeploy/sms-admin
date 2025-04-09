@@ -1,6 +1,9 @@
+<template> 
+  'sendlog'
+</template>
 <!-- 搜索表单 -->
 <el-form :model="queryParams" ref="queryFormRef" :inline="true" class="search-form">
-  <el-form-item label="手机号码" prop="mobile">
+    <el-form-item label="手机号码" prop="mobile">
     <el-input
       v-model="queryParams.mobile"
       placeholder="请输入手机号码"
@@ -99,4 +102,4 @@
     margin-left: auto;
   }
 }
-</style> 
+</style>

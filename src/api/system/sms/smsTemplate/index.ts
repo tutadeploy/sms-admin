@@ -165,3 +165,8 @@ export interface BukaBalanceVO {
 export const getBukaBalance = () => {
   return request.get<BukaBalanceVO>({ url: '/api/channels/buka/balance' })
 }
+
+/** 刷新批次状态 */
+export const refreshBatchStatus = (batchId: string) => {
+  return request.post<any>({ url: `/notification/sms/batches/${batchId}/refresh` })
+}

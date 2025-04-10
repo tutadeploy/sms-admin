@@ -66,9 +66,10 @@
         <el-table v-loading="loading" :data="batchList" border>
           <el-table-column type="index" width="50" align="center" />
           <el-table-column label="批次号" prop="batchId" min-width="120" show-overflow-tooltip />
+          <el-table-column label="短信模板" prop="templateName" min-width="120" show-overflow-tooltip />
           <el-table-column label="总数" prop="total" width="80" align="center" />
-          <el-table-column label="成功数" prop="successCount" width="80" align="center" />
-          <el-table-column label="失败数" prop="failCount" width="80" align="center" />
+          <el-table-column label="提交成功" prop="successCount" width="80" align="center" />
+          <el-table-column label="提交失败" prop="failCount" width="80" align="center" />
           <el-table-column label="发送状态" prop="status" width="100" align="center">
             <template #default="scope">
               <el-tag
@@ -90,20 +91,20 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column
-            label="短信模板"
-            prop="templateName"
-            min-width="120"
-            show-overflow-tooltip
-          />
           <el-table-column label="发送时间" prop="sendTime" min-width="160" align="center">
             <template #default="scope">
               {{ formatDateTime(scope.row.sendTime || scope.row.createdAt) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="150" align="center" fixed="right">
+          <el-table-column label="状态更新时间" prop="statusUpdateTime" min-width="160" align="center">
             <template #default="scope">
-              <el-button link type="primary" @click="viewBatchDetail(scope.row)"> 详情 </el-button>
+              {{ formatDateTime(scope.row.statusUpdateTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" align="center" fixed="right">
+            <template #default="scope">
+              <el-button link type="primary" @click="viewBatchDetail(scope.row)">详情</el-button>
+              <el-button link type="primary" @click="refreshBatchStatus(scope.row)">刷新</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -126,6 +127,9 @@
             <el-button link type="primary" @click="backToBatchList">
               <Icon icon="ep:arrow-left" class="mr-5px" />返回批次列表
             </el-button>
+            <el-button type="primary" size="small" @click="refreshBatchStatus(currentBatch)" class="float-right">
+              <Icon icon="ep:refresh" class="mr-5px" />刷新状态
+            </el-button>
           </div>
         </template>
 
@@ -137,6 +141,9 @@
           <el-descriptions-item label="发送时间" :span="1">
             {{ formatDateTime(currentBatch.sendTime || currentBatch.createdAt) }}
           </el-descriptions-item>
+          <el-descriptions-item label="状态更新时间" :span="1">
+            {{ formatDateTime(currentBatch.statusUpdateTime) }}
+          </el-descriptions-item>
           <el-descriptions-item label="发送状态" :span="1">
             <el-tag :type="getStatusType(currentBatch.status)">
               {{ getStatusText(currentBatch.status) }}
@@ -145,12 +152,14 @@
           <el-descriptions-item label="模板名称" :span="2">
             {{ currentBatch.templateName || '-' }}
           </el-descriptions-item>
-          <el-descriptions-item label="发送统计" :span="1">
-            <el-space>
-              <span>总数: <el-tag type="info">{{ currentBatch.total || 0 }}</el-tag></span>
-              <span>成功: <el-tag type="success">{{ currentBatch.successCount || 0 }}</el-tag></span>
-              <span>失败: <el-tag type="danger">{{ currentBatch.failCount || 0 }}</el-tag></span>
-            </el-space>
+          <el-descriptions-item label="发送总数" :span="1">
+            <el-tag type="info">{{ currentBatch.total || 0 }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="发送成功" :span="1">
+            <el-tag type="success">{{ currentBatch.successCount || 0 }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="发送失败" :span="1">
+            <el-tag type="danger">{{ currentBatch.failCount || 0 }}</el-tag>
           </el-descriptions-item>
         </el-descriptions>
 
@@ -194,6 +203,11 @@
         <el-table v-loading="messageLoading" :data="messageList" border>
           <el-table-column type="index" label="序号" width="50" align="center" />
           <el-table-column label="接收手机号" prop="recipientNumber" min-width="120" />
+          <el-table-column label="短信模板" min-width="120" show-overflow-tooltip>
+            <template #default="scope">
+              {{ scope.row.templateName || '-' }}
+            </template>
+          </el-table-column>
           <el-table-column label="状态" width="100" align="center">
             <template #default="scope">
               <el-tag :type="getStatusType(scope.row.status)">
@@ -202,20 +216,14 @@
             </template>
           </el-table-column>
           <el-table-column label="供应商消息ID" prop="providerMessageId" min-width="150" show-overflow-tooltip />
-          <el-table-column label="短信内容" min-width="200" show-overflow-tooltip>
-            <template #default="scope">
-              <template v-if="scope.row.contentType === 'template'">
-                <div>模板：{{ scope.row.templateName }}</div>
-                <div v-if="scope.row.templateParams">参数：{{ JSON.stringify(scope.row.templateParams) }}</div>
-              </template>
-              <template v-else>
-                {{ scope.row.directContent }}
-              </template>
-            </template>
-          </el-table-column>
           <el-table-column label="发送时间" min-width="160" align="center">
             <template #default="scope">
               {{ formatDateTime(scope.row.sendTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="状态更新时间" min-width="160" align="center">
+            <template #default="scope">
+              {{ formatDateTime(scope.row.statusUpdateTime) }}
             </template>
           </el-table-column>
         </el-table>
@@ -381,7 +389,7 @@ const statusOptions = [
 ]
 
 // 渠道选项
-const channelOptions = [{ label: '线路一', value: 'buka' }]
+const channelOptions = [{ label: '线路一', value: 'onbuka' }]
 
 // 表单数据
 const formData = ref<{
@@ -547,6 +555,7 @@ const getBatchList = async () => {
             batchId: item.batchId,
             templateName: item.templateName || '',
             sendTime: item.sendTime,
+            statusUpdateTime: item.statusUpdateTime || item.updateTime,
             status: item.status,
             total: 0,
             successCount: 0,
@@ -564,6 +573,11 @@ const getBatchList = async () => {
           batch.status = batch.successCount === 0 ? 'FAILED' : 'PARTIAL'
         } else {
           batch.status = 'SENDING'
+        }
+        
+        // Keep track of the latest status update time
+        if (item.statusUpdateTime && (!batch.statusUpdateTime || new Date(item.statusUpdateTime) > new Date(batch.statusUpdateTime))) {
+          batch.statusUpdateTime = item.statusUpdateTime
         }
       })
     }
@@ -647,7 +661,8 @@ const getBatchDetail = async (batchId: string | number) => {
                : res.status === 'partially_completed' ? 'PARTIAL'
                : 'SENDING',
         createdAt: res.createdAt,
-        updatedAt: res.updatedAt
+        updatedAt: res.updatedAt,
+        statusUpdateTime: res.updateTime || res.updatedAt
       }
     }
   } catch (error: any) {
@@ -804,6 +819,61 @@ const getStatusText = (status: string) => {
       return '已提交'
     default:
       return '未知'
+  }
+}
+
+/** 刷新批次状态 */
+const refreshBatchStatus = async (row: any) => {
+  try {
+    const res = await SmsTemplateApi.refreshBatchStatus(row.batchId)
+    if (res) {
+      message.success('刷新成功')
+      
+      // 更新批次信息
+      const updatedBatch = {
+        ...row,
+        status: res.status === 'completed' ? 'SUCCESS' 
+               : res.status === 'failed' ? 'FAILED'
+               : res.status === 'partially_completed' ? 'PARTIAL'
+               : 'SENDING',
+        total: res.totalRecipients || 0,
+        successCount: res.successCount || 0,
+        failCount: res.failureCount || 0,
+        statusUpdateTime: res.updateTime,
+        sendTime: res.createTime,
+        templateName: res.name
+      }
+      
+      // 更新列表中的批次数据
+      const index = batchList.value.findIndex(item => item.batchId === row.batchId)
+      if (index !== -1) {
+        batchList.value[index] = updatedBatch
+      }
+      
+      // 如果是当前展示的批次详情，也更新详情信息
+      if (showBatchDetail.value && currentBatch.value.batchId === row.batchId) {
+        currentBatch.value = updatedBatch
+        
+        // 更新消息列表
+        if (res.messages && res.messages.length > 0) {
+          messageList.value = res.messages.map((msg: any) => ({
+            ...msg,
+            batchId: msg.batchId,
+            recipientNumber: msg.recipientNumber,
+            status: msg.status,
+            providerMessageId: msg.providerMessageId,
+            sendTime: msg.sendTime,
+            statusUpdateTime: msg.statusUpdateTime,
+            contentType: res.contentType,
+            templateName: res.name,
+            templateParams: res.templateParams
+          }))
+          messageTotal.value = res.messages.length
+        }
+      }
+    }
+  } catch (error: any) {
+    message.error('刷新批次状态失败：' + (error.msg || '未知错误'))
   }
 }
 

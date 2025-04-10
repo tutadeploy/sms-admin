@@ -31,13 +31,13 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
             proxy: {
               // 处理带 admin-api 前缀的请求
               '/admin-api': {
-                target: 'http://localhost:3000',
+                target: 'http://192.168.50.211:3000',//'http://localhost:3000',
                 changeOrigin: true,
                 rewrite: (path) => `/v1${path.replace(/^\/admin-api/, '')}`
               },
               // 处理直接路径的请求
               '^/(system|pay|mall|mp|ai|iot|member|infra|bpm|crm)': {
-                target: 'http://localhost:3000',
+                target: 'http://192.168.50.211:3000',//'http://localhost:3000',
                 changeOrigin: true,
                 rewrite: (path) => `/v1${path}`
               }

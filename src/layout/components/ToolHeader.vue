@@ -1,6 +1,5 @@
 <script lang="tsx">
 import { defineComponent, computed } from 'vue'
-import { Message } from '@/layout/components//Message'
 import { Collapse } from '@/layout/components/Collapse'
 import { UserInfo } from '@/layout/components/UserInfo'
 import { Screenfull } from '@/layout/components/Screenfull'
@@ -77,9 +76,7 @@ export default defineComponent({
               color="var(--top-header-text-color)"
             ></LocaleDropdown>
           ) : undefined}
-          {message.value ? (
-            <Message class="custom-hover" color="var(--top-header-text-color)"></Message>
-          ) : undefined}
+          
           <UserInfo></UserInfo>
         </div>
       </div>

@@ -16,14 +16,8 @@ import { setupGlobCom } from '@/components'
 // 引入 element-plus
 import { setupElementPlus } from '@/plugins/elementPlus'
 
-// 引入 form-create
-import { setupFormCreate } from '@/plugins/formCreate'
-
 // 引入全局样式
 import '@/styles/index.scss'
-
-// 引入动画
-import '@/plugins/animate.css'
 
 // 路由
 import router, { setupRouter } from '@/router'
@@ -53,8 +47,6 @@ const setupAll = async () => {
   setupGlobCom(app)
 
   setupElementPlus(app)
-
-  setupFormCreate(app)
 
   setupRouter(app)
 

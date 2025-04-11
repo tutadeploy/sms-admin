@@ -329,7 +329,7 @@ const handleLogin = async (params: any) => {
     if (redirect.value?.indexOf('sso') !== -1) {
       window.location.href = window.location.href.replace('/login?redirect=', '')
     } else {
-      await push({ path: '/sms/template' })
+      await push({ path: '/sms/send' })
     }
   } catch (error) {
     // 添加错误日志

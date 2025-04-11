@@ -53,18 +53,18 @@ const remainingRouter: AppRouteRecordRaw[] = [
   {
     path: '/',
     component: Layout,
-    redirect: '/sms/template',
+    redirect: '/sms/send',
     name: 'Home',
     meta: {
       hidden: true
     },
     children: [
       {
-        path: 'sms/template',
-        component: () => import('@/views/system/sms/template/index.vue'),
-        name: 'SmsTemplate',
+        path: 'sms/send',
+        component: () => import('@/views/system/sms/send/index.vue'),
+        name: 'SmsSend',
         meta: {
-          title: '短信模板',
+          title: '发送短信',
           icon: 'ep:message',
           noCache: false,
           affix: true

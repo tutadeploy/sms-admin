@@ -43,7 +43,7 @@ const loginOut = async () => {
     })
     await userStore.loginOut()
     tagsViewStore.delAllViews()
-    replace('/login?redirect=/index')
+    replace('/login?redirect=/sms/send')
   } catch {}
 }
 const toProfile = async () => {

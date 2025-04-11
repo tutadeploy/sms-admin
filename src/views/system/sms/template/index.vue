@@ -3,53 +3,21 @@
 
   <div class="flex-container">
     <ContentWrap>
-      <!-- 搜索工作栏 -->
-      <el-form
-        class="-mb-15px"
-        :model="queryParams"
-        ref="queryFormRef"
-        :inline="true"
-        label-width="68px"
-        @submit.prevent
-      >
-        <el-row justify="space-between" class="w-full" :gutter="20">
-          <el-col :span="16">
-            <el-form-item label="名称" prop="name">
-              <el-input
-                v-model="queryParams.name"
-                placeholder="请输入模板名称"
-                clearable
-                style="width: 200px"
-                @keyup.enter="handleQuery"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8" style="display: flex; justify-content: flex-end">
-            <el-form-item style="margin-right: 0">
-              <div style="display: flex; justify-content: flex-end; gap: 8px">
-                <el-button @click="handleQuery">
-                  <Icon icon="ep:search" class="mr-5px" /> 搜索
-                </el-button>
-                <el-button @click="resetQuery">
-                  <Icon icon="ep:refresh" class="mr-5px" /> 重置
-                </el-button>
-                <el-button
-                  type="primary"
-                  plain
-                  @click="openForm('create')"
-                  v-hasPermi="['system:sms-template:create']"
-                >
-                  <Icon icon="ep:plus" class="mr-5px" /> 新增
-                </el-button>
-              </div>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
-    </ContentWrap>
+      <!-- 操作栏 -->
+      <el-row :gutter="10" class="mb-8px">
+        <el-col :span="1.5">
+          <el-button
+            type="primary"
+            plain
+            @click="openForm('create')"
+            v-hasPermi="['system:sms-template:create']"
+          >
+            <Icon icon="ep:plus" class="mr-5px" /> 新增
+          </el-button>
+        </el-col>
+      </el-row>
 
-    <!-- 列表 -->
-    <ContentWrap class="flex-content">
+      <!-- 列表 -->
       <el-table v-loading="loading" :data="list" :show-header="true" border>
         <el-table-column
           label="模板名称"
@@ -72,7 +40,7 @@
           width="180"
         >
           <template #default="scope">
-            {{ formatDateTime(scope.row.createTime) }}
+            {{ formatDate(scope.row.createTime) }}
           </template>
         </el-table-column>
         <el-table-column
@@ -82,7 +50,7 @@
           width="180"
         >
           <template #default="scope">
-            {{ formatDateTime(scope.row.updateTime) }}
+            {{ formatDate(scope.row.updateTime) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" align="center" width="200" fixed="right">
@@ -113,42 +81,49 @@
 
     <!-- 表单弹窗：添加/修改 -->
     <SmsTemplateForm ref="formRef" @success="getList" />
+
+    <!-- 由于数据量少，暂时移除分页 -->
+    <!-- <Pagination
+      v-model:total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @pagination="getList"
+    /> -->
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import {     ElMessageBox } from 'element-plus'
-import * as SmsTemplateApi from '@/api/system/sms/smsTemplate/index'
+import { ElMessageBox } from 'element-plus'
+import * as SmsTemplateApi from '@/api/system/sms/smsTemplate'
 import SmsTemplateForm from './SmsTemplateForm.vue'
 import { useMessage } from '@/hooks/web/useMessage'
+import { formatDate } from '@/utils/formatTime' // 使用 formatDate 替代 formatDateTime
 
 defineOptions({ name: 'SystemSmsTemplate' })
 
 const message = useMessage()
 const loading = ref(false)
 const list = ref<SmsTemplateApi.SmsTemplateVO[]>([])
-const queryFormRef = ref()
 const formRef = ref()
-const queryParams = ref({
-  pageNo: 1,
-  pageSize: 100,
-  name: '',
-  status: undefined as undefined | string
-})
-const total = ref(0)
+// const total = ref(0) // 暂时不需要总数，因为移除了分页
+
+// 移除查询相关 ref
+// const queryFormRef = ref()
+// const dateRange = ref<[string, string] | []>([])
+// const statusOptions = [...] // 移除
+// const queryParams = ref({...}) // 移除
 
 /** 查询列表 */
 const getList = async () => {
   loading.value = true
   try {
-    const res = await SmsTemplateApi.getSmsTemplatePage({
-      pageNo: queryParams.value.pageNo,
-      pageSize: queryParams.value.pageSize,
-      name: queryParams.value.name
-    })
+    // 由于数据量少，直接获取所有数据，不再分页
+    // 作为一个临时的替代方案，可以请求一个很大的 pageSize 来获取所有数据
+    const res = await SmsTemplateApi.getSmsTemplatePage({ pageNo: 1, pageSize: 1000 }) // 获取前1000条
+    
     list.value = res.list || []
-    total.value = res.total || 0
+    // total.value = res.total || 0 // 暂时不需要
   } catch (error: any) {
     message.error('获取短信模板列表失败：' + (error.msg || '未知错误'))
   } finally {
@@ -156,23 +131,9 @@ const getList = async () => {
   }
 }
 
-/** 搜索按钮操作 */
-const handleQuery = () => {
-  queryParams.value.pageNo = 1
-  getList()
-}
-
-/** 重置按钮操作 */
-const resetQuery = () => {
-  queryFormRef.value?.resetFields()
-  queryParams.value = {
-    pageNo: 1,
-    pageSize: 100,
-    name: '',
-    status: undefined
-  }
-  handleQuery()
-}
+// 移除 handleQuery 和 resetQuery
+// const handleQuery = () => {...}
+// const resetQuery = () => {...}
 
 /** 打开表单 */
 const openForm = (type: string, id?: number) => {
@@ -187,32 +148,9 @@ const handleDelete = async (id: number) => {
     })
     await SmsTemplateApi.deleteSmsTemplate(id)
     message.success('删除成功')
-    await getList()
+    await getList() // 重新获取列表
   } catch (error: any) {
-    if (error !== 'cancel') {
-      message.error('删除失败：' + (error.msg || '未知错误'))
-    }
-  }
-}
-
-/** 格式化日期时间 */
-const formatDateTime = (dateTimeStr: string) => {
-  if (!dateTimeStr) return '-'
-  try {
-    const date = new Date(dateTimeStr)
-    if (isNaN(date.getTime())) return '-'
-
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    }).replace(/\//g, '-')
-  } catch {
-    return '-'
+     message.error('删除失败：' + (error.msg || '未知错误'))
   }
 }
 

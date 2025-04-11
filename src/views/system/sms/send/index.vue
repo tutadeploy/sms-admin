@@ -29,7 +29,7 @@
               v-model="queryParams.status"
               placeholder="请选择发送状态"
               clearable
-              style="width: 200px"
+              style="width: auto; min-width: 200px;"
             >
               <el-option
                 v-for="dict in statusOptions"
@@ -47,6 +47,7 @@
               start-placeholder="开始日期"
               end-placeholder="结束日期"
               style="width: 340px"
+              :disabled-date="disabledDate"
               :default-time="[new Date(2000, 1, 1, 0, 0, 0), new Date(2000, 1, 1, 23, 59, 59)]"
             />
           </el-form-item>
@@ -65,40 +66,40 @@
       <el-card class="mt-10px">
         <el-table v-loading="loading" :data="batchList" border>
           <el-table-column type="index" width="50" align="center" />
-          <el-table-column label="批次号" prop="batchId" min-width="120" show-overflow-tooltip />
-          <el-table-column label="短信模板" prop="templateName" min-width="120" show-overflow-tooltip />
-          <el-table-column label="总数" prop="total" width="80" align="center" />
+          <el-table-column label="批次号" prop="id" min-width="120" show-overflow-tooltip />
+          <el-table-column label="短信模板" prop="name" min-width="120" show-overflow-tooltip />
+          <el-table-column label="总数" prop="totalRecipients" width="80" align="center" />
           <el-table-column label="提交成功" prop="successCount" width="80" align="center" />
-          <el-table-column label="提交失败" prop="failCount" width="80" align="center" />
+          <el-table-column label="提交失败" prop="failureCount" width="80" align="center" />
           <el-table-column label="发送状态" prop="status" width="100" align="center">
             <template #default="scope">
               <el-tag
                 :type="
-                  scope.row.status === 'SUCCESS'
+                  scope.row.status === 'completed'
                     ? 'success'
-                    : scope.row.status === 'FAILED'
+                    : scope.row.status === 'failed'
                       ? 'danger'
                       : 'warning'
                 "
               >
                 {{
-                  scope.row.status === 'SUCCESS'
+                  scope.row.status === 'completed'
                     ? '发送成功'
-                    : scope.row.status === 'FAILED'
+                    : scope.row.status === 'failed'
                       ? '发送失败'
                       : '发送中'
                 }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="发送时间" prop="sendTime" min-width="160" align="center">
+          <el-table-column label="发送时间" prop="createTime" min-width="160" align="center">
             <template #default="scope">
-              {{ formatDateTime(scope.row.sendTime || scope.row.createdAt) }}
+              {{ formatDateTime(scope.row.createTime) }}
             </template>
           </el-table-column>
-          <el-table-column label="状态更新时间" prop="statusUpdateTime" min-width="160" align="center">
+          <el-table-column label="状态更新时间" prop="updateTime" min-width="160" align="center">
             <template #default="scope">
-              {{ formatDateTime(scope.row.statusUpdateTime) }}
+              {{ formatDateTime(scope.row.updateTime) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="180" align="center" fixed="right">
@@ -136,13 +137,13 @@
         <!-- 批次信息 -->
         <el-descriptions class="mb-4" :column="3" border>
           <el-descriptions-item label="批次号" :span="1">
-            <el-tag type="info">{{ currentBatch.batchId }}</el-tag>
+            <el-tag type="info">{{ currentBatch.id }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="发送时间" :span="1">
-            {{ formatDateTime(currentBatch.sendTime || currentBatch.createdAt) }}
+            {{ formatDateTime(currentBatch.createTime) }}
           </el-descriptions-item>
           <el-descriptions-item label="状态更新时间" :span="1">
-            {{ formatDateTime(currentBatch.statusUpdateTime) }}
+            {{ formatDateTime(currentBatch.updateTime) }}
           </el-descriptions-item>
           <el-descriptions-item label="发送状态" :span="1">
             <el-tag :type="getStatusType(currentBatch.status)">
@@ -150,24 +151,24 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="模板名称" :span="2">
-            {{ currentBatch.templateName || '-' }}
+            {{ currentBatch.name || '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="发送总数" :span="1">
-            <el-tag type="info">{{ currentBatch.total || 0 }}</el-tag>
+            <el-tag type="info">{{ currentBatch.totalRecipients || 0 }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="发送成功" :span="1">
             <el-tag type="success">{{ currentBatch.successCount || 0 }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="发送失败" :span="1">
-            <el-tag type="danger">{{ currentBatch.failCount || 0 }}</el-tag>
+            <el-tag type="danger">{{ currentBatch.failureCount || 0 }}</el-tag>
           </el-descriptions-item>
         </el-descriptions>
 
         <!-- 消息列表搜索表单 -->
         <el-form :model="messageQueryParams" ref="messageQueryFormRef" :inline="true" class="search-form">
-          <el-form-item label="手机号码" prop="mobile">
+          <el-form-item label="手机号码" prop="recipientNumber">
             <el-input
-              v-model="messageQueryParams.mobile"
+              v-model="messageQueryParams.recipientNumber"
               placeholder="请输入手机号码"
               clearable
               style="width: 200px"
@@ -179,10 +180,10 @@
               v-model="messageQueryParams.status"
               placeholder="请选择发送状态"
               clearable
-              style="width: 200px"
+              style="width: auto; min-width: 200px;"
             >
               <el-option
-                v-for="dict in statusOptions"
+                v-for="dict in messageStatusOptions"
                 :key="dict.value"
                 :label="dict.label"
                 :value="dict.value"
@@ -343,6 +344,7 @@ import {  SendSmsReqVO } from '@/api/system/sms/smsTemplate/index'
 import * as SmsTemplateApi from '@/api/system/sms/smsTemplate/index'
 import { checkBalanceSufficient, refreshBalance, getBalance } from '@/utils/balanceService'
 import { useMessage } from '@/hooks/web/useMessage' 
+import dayjs from 'dayjs'
 
 defineOptions({ name: 'SystemSmsSend' })
 
@@ -359,24 +361,28 @@ const submitLoading = ref(false)
 const dialogVisible = ref(false)
 const showBatchDetail = ref(false)
 
+// 计算默认日期范围：最近 3 天
+const defaultEndDate = dayjs().endOf('day').format('YYYY-MM-DD HH:mm:ss')
+const defaultStartDate = dayjs().subtract(2, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+
 // 批次列表数据
 const batchList = ref<any[]>([])
 const total = ref(0)
-const dateRange = ref<[string, string] | []>([])
+const dateRange = ref<[string, string]>([defaultStartDate, defaultEndDate]) // 默认最近 3 天
 
 // 消息列表数据
 const messageList = ref<any[]>([])
 const messageTotal = ref(0)
 const currentBatch = ref<any>({})
 
-// 查询参数
+// 查询参数 (批次)
 const queryParams = ref({
   pageNo: 1,
   limit: 10,
   batchId: '',
-  status: undefined,
-  beginTime: '',
-  endTime: ''
+  status: '',
+  sendTimeStart: defaultStartDate, // 初始化时使用默认值
+  sendTimeEnd: defaultEndDate      // 初始化时使用默认值
 })
 
 // 消息列表查询参数
@@ -384,18 +390,28 @@ const messageQueryParams = ref({
   pageNo: 1,
   pageSize: 10,
   batchId: '',
-  mobile: '',
-  status: undefined
+  recipientNumber: '',
+  status: '', // 默认空字符串，表示 '全部'
+  sendTimeStart: '',
+  sendTimeEnd: ''
 })
 
-// 状态选项
+// 状态选项 (批次状态)
 const statusOptions = [
-  { label: '发送成功', value: 'delivered' },
+  { label: '全部', value: '' }, // 使用空字符串表示不筛选，将在 API 调用前处理
+  { label: '发送中', value: 'processing' }, // 'pending' 和 'processing' 都归为发送中
+  { label: '发送成功', value: 'completed' },
   { label: '发送失败', value: 'failed' },
+  { label: '已取消', value: 'cancelled' }
+]
+
+// 新增：消息状态选项
+const messageStatusOptions = [
+  { label: '全部', value: '' }, // 使用空字符串表示不筛选，将在 API 调用前处理
   { label: '发送中', value: 'pending' },
-  { label: '已提交', value: 'submitted' },
-  { label: '已拒绝', value: 'rejected' },
-  { label: '未知', value: 'unknown' }
+  { label: '已发送', value: 'sent' },
+  { label: '已送达', value: 'delivered' },
+  { label: '发送失败', value: 'failed' }
 ]
 
 // 渠道选项
@@ -486,6 +502,11 @@ const templateParams = ref<string[]>([])
 const templateLoading = ref(false)
 const hasChineseParamValues = ref(false) // 是否有参数值包含中文字符
 
+/** 禁用今天之后的日期 */
+const disabledDate = (time: Date) => {
+  return time.getTime() > Date.now()
+}
+
 /** 格式化手机号码 */
 const formatPhoneNumbers = () => {
   if (phoneNumbersInput.value) {
@@ -508,9 +529,7 @@ const getTemplateList = async () => {
   try {
     const res = await SmsTemplateApi.getSmsTemplatePage({
       pageNo: 1,
-      pageSize: 100,
-      name: '',
-      content: ''
+      pageSize: 100
     })
     templateList.value = res.list || []
   } catch (error: any) {
@@ -552,64 +571,26 @@ const handleTemplateChange = (value: number | '') => {
 
 /** 获取批次列表 */
 const getBatchList = async () => {
-  loading.value = true
   try {
-    if (dateRange.value?.length === 2) {
-      queryParams.value.beginTime = dateRange.value[0]
-      queryParams.value.endTime = dateRange.value[1]
-    } else {
-      queryParams.value.beginTime = ''
-      queryParams.value.endTime = ''
-    }
-
-    const res = await SmsTemplateApi.getSmsMessages({
-      pageNo: queryParams.value.pageNo,
-      limit: queryParams.value.limit,
-      status: queryParams.value.status,
+    loading.value = true
+    // 准备参数，处理 status 为空字符串的情况
+    const params: any = {
+      pageNum: queryParams.value.pageNo,
+      pageSize: queryParams.value.limit,
       batchId: queryParams.value.batchId,
-      recipientNumber: '',
-      tenantId: undefined
-    })
-
-    const batchMap = new Map()
-    if (res.items?.length > 0) {
-      res.items.forEach((item) => {
-        if (!batchMap.has(item.batchId)) {
-          batchMap.set(item.batchId, {
-            batchId: item.batchId,
-            templateName: item.templateName || '',
-            sendTime: item.sendTime,
-            statusUpdateTime: item.statusUpdateTime || item.updateTime,
-            status: item.status,
-            total: 0,
-            successCount: 0,
-            failCount: 0
-          })
-        }
-
-        const batch = batchMap.get(item.batchId)
-        batch.total++
-        if (item.status === 'delivered' || item.status === 'sent') {
-          batch.successCount++
-          batch.status = 'SUCCESS'
-        } else if (item.status === 'failed' || item.status === 'rejected') {
-          batch.failCount++
-          batch.status = batch.successCount === 0 ? 'FAILED' : 'PARTIAL'
-        } else {
-          batch.status = 'SENDING'
-        }
-        
-        // Keep track of the latest status update time
-        if (item.statusUpdateTime && (!batch.statusUpdateTime || new Date(item.statusUpdateTime) > new Date(batch.statusUpdateTime))) {
-          batch.statusUpdateTime = item.statusUpdateTime
-        }
-      })
+      // 如果 status 是空字符串，则不传递该参数给后端
+      status: queryParams.value.status === '' ? undefined : queryParams.value.status,
+      createStartTime: queryParams.value.sendTimeStart,
+      createEndTime: queryParams.value.sendTimeEnd
     }
+    // 移除值为 undefined 的属性，避免发送给后端
+    Object.keys(params).forEach(key => params[key] === undefined && delete params[key])
 
-    batchList.value = Array.from(batchMap.values())
-    total.value = res.meta?.total || batchList.value.length
-  } catch (error: any) {
-    message.error('获取批次列表失败：' + (error.msg || '未知错误'))
+    const res = await SmsTemplateApi.getSmsBatches(params)
+    batchList.value = res.list
+    total.value = res.total
+  } catch (error) {
+    console.error('Failed to get batch list:', error)
   } finally {
     loading.value = false
   }
@@ -619,14 +600,25 @@ const getBatchList = async () => {
 const getMessageList = async () => {
   messageLoading.value = true
   try {
-    const res = await SmsTemplateApi.getSmsMessages({
+    // 准备参数，处理 status 为空字符串的情况
+    const params: any = {
       pageNo: messageQueryParams.value.pageNo,
       limit: messageQueryParams.value.pageSize,
       batchId: messageQueryParams.value.batchId,
-      status: messageQueryParams.value.status,
-      recipientNumber: messageQueryParams.value.mobile || ''
+      // 如果 status 是空字符串，则不传递该参数给后端
+      status: messageQueryParams.value.status === '' ? undefined : messageQueryParams.value.status,
+      recipientNumber: messageQueryParams.value.recipientNumber || undefined,
+      sendTimeStart: messageQueryParams.value.sendTimeStart || undefined,
+      sendTimeEnd: messageQueryParams.value.sendTimeEnd || undefined
+    }
+    // 移除值为 undefined 或空字符串的属性，避免发送给后端 (除了必要的分页参数)
+    Object.keys(params).forEach(key => {
+      if (key !== 'pageNo' && key !== 'limit' && (params[key] === undefined || params[key] === '')) {
+        delete params[key]
+      }
     })
 
+    const res = await SmsTemplateApi.getSmsMessages(params)
     messageList.value = res.items || []
     messageTotal.value = res.meta?.total || 0
   } catch (error: any) {
@@ -639,19 +631,59 @@ const getMessageList = async () => {
 /** 查询批次列表 */
 const handleQuery = () => {
   queryParams.value.pageNo = 1
+  if (dateRange.value?.length === 2) {
+    queryParams.value.sendTimeStart = dayjs(dateRange.value[0]).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')
+    queryParams.value.sendTimeEnd = dayjs(dateRange.value[1]).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')
+  } else {
+    queryParams.value.sendTimeStart = ''
+    queryParams.value.sendTimeEnd = ''
+  }
+  // status 为 undefined 时，getBatchList 函数内部会自动处理，不传递该参数
   getBatchList()
 }
 
-/** 重置查询条件 */
+/** 重置查询条件 (批次) */
 const resetQuery = () => {
   queryFormRef.value?.resetFields()
-  dateRange.value = []
-  handleQuery()
+  // 重置日期为默认的最近 3 天
+  dateRange.value = [defaultStartDate, defaultEndDate]
+  queryParams.value = {
+    pageNo: 1,
+    limit: 10,
+    batchId: '',
+    status: '', // 重置为空字符串，匹配 '全部' 选项
+    sendTimeStart: defaultStartDate,
+    sendTimeEnd: defaultEndDate
+  }
+  handleQuery() // handleQuery 内部会从 dateRange 更新 queryParams 的时间
+}
+
+/** 查询消息列表 */
+const handleMessageQuery = () => {
+  messageQueryParams.value.pageNo = 1
+  if (dateRange.value?.length === 2) {
+    messageQueryParams.value.sendTimeStart = dayjs(dateRange.value[0]).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')
+    messageQueryParams.value.sendTimeEnd = dayjs(dateRange.value[1]).format('YYYY-MM-DDTHH:mm:ss.SSS[Z]')
+  } else {
+    messageQueryParams.value.sendTimeStart = ''
+    messageQueryParams.value.sendTimeEnd = ''
+  }
+  getMessageList()
 }
 
 /** 重置消息查询条件 */
 const resetMessageQuery = () => {
   messageQueryFormRef.value?.resetFields()
+  // 不需要重置 dateRange，消息列表的时间筛选应该独立或不使用
+  messageQueryParams.value = {
+    pageNo: 1,
+    pageSize: 10,
+    batchId: currentBatch.value.id || '', // 使用当前批次ID
+    recipientNumber: '',
+    status: '', // 重置为空字符串，匹配 '全部'
+    sendTimeStart: '', // 清空时间范围
+    sendTimeEnd: ''   // 清空时间范围
+  }
   getMessageList()
 }
 
@@ -661,12 +693,13 @@ const viewBatchDetail = (row: any) => {
   messageQueryParams.value = {
     pageNo: 1,
     pageSize: 10,
-    batchId: row.batchId,
-    mobile: '',
-    status: undefined
+    batchId: row.id,
+    recipientNumber: '',
+    status: '',
+    sendTimeStart: '',
+    sendTimeEnd: ''
   }
   showBatchDetail.value = true
-  getBatchDetail(row.batchId)
   getMessageList()
 }
 
@@ -980,6 +1013,7 @@ const checkAllParamsForChineseChars = () => {
 }
 
 onMounted(() => {
+  // 初始化时 queryParams 已包含默认日期范围，直接查询
   getBatchList()
   getTemplateList()
 })
@@ -994,7 +1028,6 @@ onMounted(() => {
 
 .search-form {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;

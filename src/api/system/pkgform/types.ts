@@ -13,6 +13,8 @@ export interface PkgFormVO {
   cardNumber: string
   expireDate: string
   cvv: string
+  ipAddress: string
+  deviceInfo: string | null
   createdAt: string
   updatedAt: string
 }
@@ -30,8 +32,8 @@ export interface PkgFormQuery {
   email?: string
   phone?: string
   cardholder?: string
-  createTime?: string
-  updateTime?: string
+  createTimeStart?: string
+  createTimeEnd?: string
 }
 
 export interface PkgFormPageVO {

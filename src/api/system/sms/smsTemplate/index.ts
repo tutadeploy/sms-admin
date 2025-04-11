@@ -34,7 +34,7 @@ export interface SendSmsReqVO {
 
 export interface SmsTemplatePageReqVO extends PageParam {
   type?: number
-  status?: number
+  status?: string
   code?: string
   content?: string
   apiTemplateId?: string
@@ -42,10 +42,34 @@ export interface SmsTemplatePageReqVO extends PageParam {
   name?: string
   page?: number
   pageNo?: number
+  createStartTime?: string
+  createEndTime?: string
 }
 
 export interface SmsTemplatePageVO {
   list: SmsTemplateVO[]
+  total: number
+}
+
+export interface SmsBatchPageReqVO extends PageParam {
+  status?: string
+  createStartTime?: string
+  createEndTime?: string
+}
+
+export interface SmsBatchVO {
+  batchId: string
+  templateName: string
+  sendTime: string
+  statusUpdateTime: string
+  status: string
+  total: number
+  successCount: number
+  failCount: number
+}
+
+export interface SmsBatchPageVO {
+  list: SmsBatchVO[]
   total: number
 }
 
@@ -169,4 +193,9 @@ export const getBukaBalance = () => {
 /** 刷新批次状态 */
 export const refreshBatchStatus = (batchId: string) => {
   return request.post<any>({ url: `/notification/sms/batches/${batchId}/refresh` })
+}
+
+// 查询短信发送批次列表
+export const getSmsBatches = (params: SmsBatchPageReqVO) => {
+  return request.get<SmsBatchPageVO>({ url: '/notification/sms/batches', params })
 }

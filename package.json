@@ -25,15 +25,16 @@
     "lint:lint-staged": "lint-staged -c "
   },
   "dependencies": {
-    "echarts": "^5.5.0",
-    "echarts-wordcloud": "^2.1.0",
     "@element-plus/icons-vue": "^2.1.0",
     "@iconify/iconify": "^3.1.1",
+    "@types/xlsx": "^0.0.35",
     "@vueuse/core": "^10.9.0",
     "@zxcvbn-ts/core": "^3.0.4",
     "axios": "^1.6.8",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.10",
+    "echarts": "^5.5.0",
+    "echarts-wordcloud": "^2.1.0",
     "element-plus": "2.9.1",
     "jsencrypt": "^3.3.2",
     "lodash-es": "^4.17.21",
@@ -48,7 +49,8 @@
     "vue-i18n": "9.10.2",
     "vue-router": "4.4.5",
     "vue-types": "^5.1.1",
-    "web-storage-cache": "^1.1.1"
+    "web-storage-cache": "^1.1.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.1",

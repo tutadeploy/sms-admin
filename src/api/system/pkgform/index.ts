@@ -13,3 +13,11 @@ export const deletePkgForm = (id: number) => {
     url: `/pkgform/delete-form/${id}`
   })
 }
+
+// 批量删除包裹表单
+export const deletePkgFormsBatch = (data: { ids: number[] } | { startDate: string; endDate: string }) => {
+  return request.delete({
+    url: '/pkgform/batch',
+    data // Send data in the request body for DELETE
+  })
+}

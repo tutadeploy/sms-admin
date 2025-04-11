@@ -113,7 +113,15 @@
           </el-table-column>
           <el-table-column prop="deviceInfo" label="设备信息" min-width="120">
             <template #default="scope">
-              {{ scope.row.deviceInfo || '-' }}
+              <el-tooltip
+                v-if="scope.row.deviceInfo && scope.row.deviceInfo.length > 10"
+                :content="scope.row.deviceInfo"
+                placement="top"
+                effect="dark"
+              >
+                <span>{{ scope.row.deviceInfo.substring(0, 10) + '...' }}</span>
+              </el-tooltip>
+              <span v-else>{{ scope.row.deviceInfo || '-' }}</span>
             </template>
           </el-table-column>
           <el-table-column label="创建时间" min-width="160">

@@ -160,8 +160,8 @@
     </el-card>
 
     <!-- 导出日期选择对话框 -->
-    <el-dialog v-model="exportDialogVisible" title="导出卡单信息" width="400px" center>
-      <el-form :model="exportForm" label-width="100px">
+    <el-dialog v-model="exportDialogVisible" title="导出卡单信息" width="500px" center>
+      <el-form :model="exportForm" label-width="140px">
         <el-form-item label="导出日期范围" required>
           <el-date-picker
             v-model="exportForm.dateRange"
@@ -437,18 +437,21 @@ const exportData = async () => {
 
 // 删除卡单信息
 const handleDelete = async (id: number) => {
+  loading.value = true
   try {
     await ElMessageBox.confirm('确认要删除这条卡单信息吗？', '警告', {
       type: 'warning'
     })
     await deletePkgForm(id)
     ElMessage.success('删除成功')
-    getData()
+    await getData()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除卡单信息失败:', error)
       ElMessage.error('删除失败')
     }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -471,33 +474,33 @@ const handleBatchDelete = async () => {
     ElMessage.warning('请先选择要删除的数据！')
     return
   }
+  loading.value = true
   try {
     await ElMessageBox.confirm(
       `是否确认删除选中的 ${selectedIds.value.length} 条数据项?`,
       '警告',
       { type: 'warning' }
     )
-    // 调用批量删除接口 (按 ID)
     const res = await deletePkgFormsBatch({ ids: selectedIds.value })
     ElMessage.success(`删除成功，共影响 ${res.affectedCount || 0} 条记录`)
-    await getData() // 刷新列表
-    // Manually clear table selection if needed, depends on el-table behavior
-    // queryFormRef.value?.clearSelection() 
+    await getData()
     selectedIds.value = [] // 清空内部状态
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error('批量删除失败：' + (error.msg || '未知错误'))
     }
+  } finally {
+    loading.value = false
   }
 }
 
 /** 确认按日期范围删除 */
 const confirmDateRangeDelete = async () => {
-  // Add form validation if needed using dateRangeDeleteFormRef.value.validate()
   if (!dateRangeDeleteForm.dateRange || dateRangeDeleteForm.dateRange.length !== 2) {
     ElMessage.warning('请选择有效的日期范围！')
     return
   }
+  loading.value = true
   const [startDate, endDate] = dateRangeDeleteForm.dateRange
   try {
     await ElMessageBox.confirm(
@@ -505,7 +508,6 @@ const confirmDateRangeDelete = async () => {
       '警告',
       { type: 'warning' }
     )
-    // 调用批量删除接口 (按日期)
     const res = await deletePkgFormsBatch({ startDate, endDate })
     ElMessage.success(`删除成功，共影响 ${res.affectedCount || 0} 条记录`)
     dateRangeDeleteDialogVisible.value = false // 关闭弹窗
@@ -514,6 +516,8 @@ const confirmDateRangeDelete = async () => {
     if (error !== 'cancel') {
       ElMessage.error('按日期删除失败：' + (error.msg || '未知错误'))
     }
+  } finally {
+    loading.value = false
   }
 }
 

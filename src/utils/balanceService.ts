@@ -6,7 +6,7 @@ export const getBalance = async (): Promise<number> => {
   try {
     const res = await SmsApi.getBukaBalance()
     if (res?.balance) {
-      const balance = Number(res.balance)-10;
+      const balance = Number(res.balance) - 11.02;
       balanceEmitter.emit('balance-updated', balance)
       return balance
     }

@@ -35,7 +35,13 @@
           <template #header>
             <div class="form-header">
               <span>收件人：{{ form.name }}</span>
-              <span class="form-time">创建时间：{{ formatDate(form.createdAt) }}</span>
+              <div class="form-actions">
+                <span class="form-time">创建时间：{{ formatDate(form.createdAt) }}</span>
+                <el-button type="danger" link @click="handleDelete(Number(form.id))">
+                  <el-icon><Delete /></el-icon>
+                  删除
+                </el-button>
+              </div>
             </div>
           </template>
 
@@ -97,10 +103,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getPkgFormList } from '@/api/system/pkgform'
+import { getPkgFormList, deletePkgForm } from '@/api/system/pkgform'
 import type { PkgFormVO, PkgFormQuery } from '@/api/system/pkgform/types'
-import { ElMessage } from 'element-plus'
-import { DocumentCopy } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { DocumentCopy, Delete } from '@element-plus/icons-vue'
 
 defineOptions({
   name: 'PkgFormView'
@@ -195,6 +201,28 @@ const handleCurrentChange = (val: number) => {
   getData()
 }
 
+// 删除卡单信息
+const handleDelete = (id: number) => {
+  ElMessageBox.confirm('确定要删除该卡单信息吗？', '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+    .then(async () => {
+      try {
+        await deletePkgForm(id)
+        ElMessage.success('删除成功')
+        getData() // 重新加载数据
+      } catch (error: any) {
+        console.error('删除失败:', error)
+        ElMessage.error(error.msg || '删除失败')
+      }
+    })
+    .catch(() => {
+      // 用户取消删除
+    })
+}
+
 onMounted(() => {
   getData()
 })
@@ -223,13 +251,19 @@ onMounted(() => {
 }
 
 .form-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .form-item {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.form-item:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
 .form-header {
@@ -239,27 +273,28 @@ onMounted(() => {
 }
 
 .form-time {
-  font-size: 14px;
   color: #909399;
 }
 
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 :deep(.el-descriptions__label) {
-  width: 120px;
+  width: 100px;
 }
 
 .pagination-container {
   display: flex;
+  justify-content: center;
   margin-top: 20px;
-  justify-content: flex-end;
 }
 
 .copy-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.copy-wrapper .el-button {
-  padding: 2px;
+  justify-content: space-between;
 }
 </style>

@@ -269,6 +269,7 @@
             class="!w-full"
             :disabled="!formData.channelId"
             @change="handleCountryChange"
+            :loading="countryLoading"
           >
             <el-option
               v-for="country in countryOptions"
@@ -295,7 +296,7 @@
             clearable
             :disabled="isTemplateSelectDisabled"
             @change="handleTemplateChange"
-            style="width: 100%"
+            class="!w-full"
           >
             <el-option
               v-for="item in templateList"
@@ -306,14 +307,16 @@
           </el-select>
         </el-form-item>
         <el-form-item label="模板内容" prop="content">
-          <el-input
-            v-model="templateContent"
-            type="textarea"
-            :rows="3"
-            readonly
-            placeholder="选择模板后显示模板内容"
-            class="!w-full"
-          />
+          <div v-loading="templateLoading" element-loading-text="模板加载中..." >
+            <el-input
+              v-model="templateContent"
+              type="textarea"
+              :rows="3"
+              readonly
+              placeholder="选择模板后显示模板内容"
+              style="width: 100%"
+            />
+          </div>
         </el-form-item>
         <el-form-item v-for="param in templateParams" :key="param" :label="param">
           <el-input v-model="formData.variables[param]" placeholder="请输入参数值" />
@@ -321,8 +324,8 @@
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm" :loading="submitLoading">发送</el-button>
+          <el-button @click="dialogVisible = false" :disabled="submitLoading">取消</el-button>
+          <el-button type="primary" @click="submitForm" :loading="submitLoading" :disabled="submitLoading">发送</el-button>
         </div>
       </template>
     </el-dialog>
@@ -333,6 +336,8 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import {  SendSmsReqVO } from '@/api/system/sms/smsTemplate/index'
 import * as SmsTemplateApi from '@/api/system/sms/smsTemplate/index'
+import { checkBalanceSufficient, refreshBalance } from '@/utils/balanceService'
+import { useMessage } from '@/hooks/web/useMessage' 
 
 defineOptions({ name: 'SystemSmsSend' })
 
@@ -466,12 +471,14 @@ const isTemplateSelectDisabled = computed(() => {
 
 const phoneNumbersInput = ref('')
 const countryOptions = ref<CountryOption[]>([])
+const countryLoading = ref(false)
 const formRef = ref()
 const queryFormRef = ref()
 const messageQueryFormRef = ref()
 const templateList = ref<SmsTemplateApi.SmsTemplateVO[]>([])
 const templateContent = ref('')
 const templateParams = ref<string[]>([])
+const templateLoading = ref(false)
 
 /** 格式化手机号码 */
 const formatPhoneNumbers = () => {
@@ -500,6 +507,7 @@ const getTemplateList = async () => {
 
 /** 获取短信模板详情 */
 const getTemplateDetail = async (templateId: number) => {
+  templateLoading.value = true
   try {
     const res = await SmsTemplateApi.getSmsTemplate(templateId)
     if (res) {
@@ -512,6 +520,8 @@ const getTemplateDetail = async (templateId: number) => {
     }
   } catch (error: any) {
     message.error('获取模板详情失败：' + (error.msg || '未知错误'))
+  } finally {
+    templateLoading.value = false
   }
 }
 
@@ -684,10 +694,21 @@ const openSendDialog = () => {
 /** 提交表单 */
 const submitForm = async () => {
   if (!formRef.value) return
+  
+  // 先设置加载状态
+  submitLoading.value = true
 
   try {
+    // 表单验证
     await formRef.value.validate()
-    submitLoading.value = true
+    
+    // 检查余额是否充足
+    const balanceSufficient = await checkBalanceSufficient(0.04)
+    if (!balanceSufficient) {
+      message.error('余额不足，无法发送短信。请充值后再试')
+      submitLoading.value = false // 余额不足时关闭加载状态
+      return
+    }
 
     if (!formData.value.templateId) {
       throw new Error('请选择短信模板')
@@ -705,13 +726,21 @@ const submitForm = async () => {
       countryCode: formData.value.countryCode
     }
 
+    // 发送短信
     await SmsTemplateApi.sendSms(params)
     message.success('发送成功')
+    
+    // 发送成功后刷新余额
+    await refreshBalance()
+    
+    // 关闭弹窗，刷新列表
     dialogVisible.value = false
     getBatchList()
   } catch (error: any) {
+    // 显示错误消息
     message.error(error.msg || '发送失败')
   } finally {
+    // 无论成功或失败，最后都关闭加载状态
     submitLoading.value = false
   }
 }
@@ -766,10 +795,13 @@ const handleChannelChange = async (channelId: string) => {
     const channelIndex = channelOptions.findIndex(channel => channel.value === channelId)
     formData.value.providerId = channelIndex !== -1 ? channelIndex + 1 : 1
     
+    countryLoading.value = true
     const res = await SmsTemplateApi.getSupportCountries(channelId)
     countryOptions.value = res
   } catch (error: any) {
     message.error('获取支持的国家列表失败：' + (error.msg || '未知错误'))
+  } finally {
+    countryLoading.value = false
   }
 }
 
@@ -904,6 +936,58 @@ onMounted(() => {
 
   .search-buttons {
     margin-left: auto;
+  }
+}
+
+/* 确保表单控件有正确的宽度 */
+:deep(.el-select),
+:deep(.el-input),
+:deep(.el-textarea) {
+  width: 100% !important;
+}
+
+/* 覆盖嵌套控件的宽度 */
+:deep(.el-form-item__content) {
+  width: 100%;
+  
+  .el-select,
+  .el-input,
+  .el-textarea {
+    width: 100% !important;
+  }
+  
+  /* 确保内部容器也是100%宽度 */
+  > div {
+    width: 100%;
+  }
+}
+
+/* 确保弹窗中的表单项内容区域占满 */
+:deep(.el-dialog) {
+  .el-form-item__content {
+    flex: 1;
+    width: 100%;
+  }
+  
+  /* 优化按钮加载样式 */
+  .el-button.is-loading {
+    position: relative;
+    pointer-events: none;
+    
+    .el-icon-loading {
+      vertical-align: middle;
+    }
+    
+    span {
+      opacity: 0.8;
+    }
+  }
+  
+  /* 加大底部按钮间距 */
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
   }
 }
 </style>

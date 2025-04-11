@@ -2,6 +2,11 @@ const sms = {
   path: '/sms',
   name: 'Sms',
   redirect: '/sms/template',
+  meta: {
+    title: '短信管理',
+    icon: 'ep:message',
+    alwaysShow: true
+  },
   children: [
     {
       path: 'template',

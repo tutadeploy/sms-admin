@@ -82,6 +82,7 @@ export default defineComponent({
       return (
         <ElMenu
           defaultActive={unref(activeMenu)}
+          default-openeds={getDefaultOpenedMenus()}
           mode={unref(menuMode)}
           collapse={
             unref(layout) === 'top' || unref(layout) === 'cutMenu' ? false : unref(collapse)
@@ -105,6 +106,24 @@ export default defineComponent({
           }}
         </ElMenu>
       )
+    }
+
+    // 获取需要默认展开的菜单路径
+    const getDefaultOpenedMenus = () => {
+      // 获取当前路由的所有父级路径作为默认展开项
+      const currentPath = unref(activeMenu)
+      if (!currentPath) return []
+      
+      const menuPaths: string[] = []
+      const pathParts = currentPath.split('/').filter(Boolean)
+      
+      let currentPathBuilder = ''
+      pathParts.forEach(part => {
+        currentPathBuilder += `/${part}`
+        menuPaths.push(currentPathBuilder)
+      })
+      
+      return menuPaths
     }
 
     return () => (

@@ -25,4 +25,6 @@ const config: {
   default_headers: 'application/json'
 }
 
+console.log('baseUrl', config.base_url)
+
 export { config }

@@ -118,7 +118,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {     ElMessageBox } from 'element-plus'
 import * as SmsTemplateApi from '@/api/system/sms/smsTemplate/index'
 import SmsTemplateForm from './SmsTemplateForm.vue'
 import { useMessage } from '@/hooks/web/useMessage'

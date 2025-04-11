@@ -9,25 +9,29 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import * as SmsApi from '@/api/system/sms/smsTemplate/index'
+import { balanceEmitter } from '@/utils/balanceEmitter'
+import { getBalance } from '@/utils/balanceService'
 
 const balance = ref('0')
 
-const getBalance = async () => {
+const updateBalance = async () => {
   try {
-    const res = await SmsApi.getBukaBalance()
-    if (res?.balance) {
-      balance.value = Number(res.balance).toFixed(2)
-    }
+    const balanceValue = await getBalance()
+    balance.value = balanceValue.toFixed(2)
   } catch (error) {
-    console.error('获取余额失败：', error)
+    console.error('更新余额失败：', error)
   }
 }
 
 onMounted(() => {
-  getBalance()
+  updateBalance()
   // 每5分钟刷新一次余额
-  setInterval(getBalance, 5 * 60 * 1000)
+  setInterval(updateBalance, 5 * 60 * 1000)
+  
+  // 监听刷新余额事件
+  balanceEmitter.on('balance-updated', (balanceValue: number) => {
+    balance.value = balanceValue.toFixed(2)
+  })
 })
 </script>
 

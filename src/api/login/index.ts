@@ -1,7 +1,6 @@
 import request from '@/config/axios'
-import { getRefreshToken, getTenantId } from '@/utils/auth'
+import {  getTenantId } from '@/utils/auth'
 import type { RegisterVO, UserLoginVO, TokenType } from './types'
-import { AxiosPromise } from 'axios'
 
 export interface SmsCodeVO {
   mobile: string
@@ -21,7 +20,7 @@ export const login = (data: UserLoginVO) => {
     headers['tenant-id'] = tenantId
   }
   return request.post<TokenType>({
-    url: '/system/auth/login', // Keep URL without /v1
+    url: '/system/auth/login', 
     data: loginData,
     headers
   })

@@ -7,3 +7,9 @@ export const getPkgFormList = (params: PkgFormQuery) => {
     params
   })
 }
+
+export const deletePkgForm = (id: number) => {
+  return request.delete({
+    url: `/pkgform/delete-form/${id}`
+  })
+}

@@ -22,13 +22,13 @@
           type="textarea"
           placeholder="请输入模板内容"
           :rows="4"
-          @input="extractVariables"
+          @input="onContentInput"
         />
       </el-form-item>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="submitForm" :disabled="formLoading"> 确 定 </el-button>
+        <el-button type="primary" @click="submitForm" :disabled="formLoading || hasChineseChars"> 确 定 </el-button>
         <el-button @click="dialogVisible = false">取 消</el-button>
       </div>
     </template>
@@ -47,6 +47,7 @@ const dialogVisible = ref(false) // 弹窗的是否展示
 const dialogTitle = ref('') // 弹窗的标题
 const formLoading = ref(false) // 表单的加载中：提交的按钮禁用
 const formType = ref('') // 表单的类型：create - 新增；update - 修改
+const hasChineseChars = ref(false) // 是否包含中文字符
 const formData = ref({
   id: undefined as number | undefined,
   name: '',
@@ -56,7 +57,27 @@ const formData = ref({
 })
 const formRules = reactive({
   name: [{ required: true, message: '模板名称不能为空', trigger: 'blur' }],
-  content: [{ required: true, message: '模板内容不能为空', trigger: 'blur' }]
+  content: [
+    { required: true, message: '模板内容不能为空', trigger: 'blur' },
+    { 
+      validator: (rule: any, value: string, callback: Function) => {
+        if (!value) {
+          hasChineseChars.value = false
+          callback()
+          return
+        }
+        
+        // 检查是否包含中文字符
+        hasChineseChars.value = /[\u4e00-\u9fa5]/.test(value)
+        if (hasChineseChars.value) {
+          callback(new Error('短信模板内容不允许包含中文字符'))
+          return
+        }
+        callback()
+      }, 
+      trigger: 'blur' 
+    }
+  ]
 })
 const formRef = ref() // 表单 Ref
 
@@ -162,5 +183,14 @@ const resetForm = () => {
 const extractVariables = (content: string) => {
   const matches = content.match(/\{\{([^}]+)\}\}/g) || []
   formData.value.variables = matches.map((match) => match.slice(2, -2))
+}
+
+/** 内容输入时检查中文字符 */
+const onContentInput = (value: string) => {
+  // 检查内容中是否包含中文字符
+  hasChineseChars.value = /[\u4e00-\u9fa5]/.test(value)
+  
+  // 提取变量
+  extractVariables(value)
 }
 </script>

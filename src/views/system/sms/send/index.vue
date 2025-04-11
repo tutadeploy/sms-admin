@@ -319,13 +319,18 @@
           </div>
         </el-form-item>
         <el-form-item v-for="param in templateParams" :key="param" :label="param">
-          <el-input v-model="formData.variables[param]" placeholder="请输入参数值" />
+          <el-input 
+            v-model="formData.variables[param]" 
+            placeholder="请输入参数值" 
+            @blur="validateParamValue(param)"
+            @input="onParamInput"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false" :disabled="submitLoading">取消</el-button>
-          <el-button type="primary" @click="submitForm" :loading="submitLoading" :disabled="submitLoading">发送</el-button>
+          <el-button type="primary" @click="submitForm" :loading="submitLoading" :disabled="submitLoading || hasChineseParamValues">发送</el-button>
         </div>
       </template>
     </el-dialog>
@@ -336,7 +341,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import {  SendSmsReqVO } from '@/api/system/sms/smsTemplate/index'
 import * as SmsTemplateApi from '@/api/system/sms/smsTemplate/index'
-import { checkBalanceSufficient, refreshBalance } from '@/utils/balanceService'
+import { checkBalanceSufficient, refreshBalance, getBalance } from '@/utils/balanceService'
 import { useMessage } from '@/hooks/web/useMessage' 
 
 defineOptions({ name: 'SystemSmsSend' })
@@ -479,6 +484,7 @@ const templateList = ref<SmsTemplateApi.SmsTemplateVO[]>([])
 const templateContent = ref('')
 const templateParams = ref<string[]>([])
 const templateLoading = ref(false)
+const hasChineseParamValues = ref(false) // 是否有参数值包含中文字符
 
 /** 格式化手机号码 */
 const formatPhoneNumbers = () => {
@@ -488,6 +494,13 @@ const formatPhoneNumbers = () => {
   } else {
     formData.value.recipients = []
   }
+}
+
+/** 检查短信内容长度是否超过160字节 */
+const checkSmsContentLength = (content: string): boolean => {
+  // 使用Blob计算字节长度
+  const blob = new Blob([content]);
+  return blob.size <= 160;
 }
 
 /** 获取短信模板列表 */
@@ -533,6 +546,7 @@ const handleTemplateChange = (value: number | '') => {
     templateContent.value = ''
     templateParams.value = []
     formData.value.variables = {}
+    hasChineseParamValues.value = false // 重置中文检查状态
   }
 }
 
@@ -702,11 +716,19 @@ const submitForm = async () => {
     // 表单验证
     await formRef.value.validate()
     
-    // 检查余额是否充足
-    const balanceSufficient = await checkBalanceSufficient(0.04)
-    if (!balanceSufficient) {
-      message.error('余额不足，无法发送短信。请充值后再试')
-      submitLoading.value = false // 余额不足时关闭加载状态
+    // 1. 验证号码数量不超过1000条
+    if (formData.value.recipients.length > 1000) {
+      message.error(`系统只允许一次性发送最多1000条短信，当前为${formData.value.recipients.length}条`)
+      submitLoading.value = false
+      return
+    }
+    
+    // 2. 检查余额是否充足（根据号码数量计算所需费用）
+    const requiredBalance = formData.value.recipients.length * 0.04
+    const currentBalance = await getBalance()
+    if (currentBalance < requiredBalance) {
+      message.error(`您当前有${formData.value.recipients.length}条号码，余额${currentBalance.toFixed(2)}元只支持发送${Math.floor(currentBalance / 0.04)}条，请进行删减或者充值`)
+      submitLoading.value = false
       return
     }
 
@@ -716,6 +738,27 @@ const submitForm = async () => {
 
     if (!formData.value.countryCode) {
       throw new Error('请选择国家')
+    }
+    
+    // 3. 检查短信内容长度不超过160字节
+    if (templateContent.value && !checkSmsContentLength(templateContent.value)) {
+      message.error('短信内容超过160字节限制，请缩减内容长度')
+      submitLoading.value = false
+      return
+    }
+
+    // 4. 检查所有参数值不包含中文
+    const hasChineseParam = Object.entries(formData.value.variables).some(([key, value]) => {
+      if (value && /[\u4e00-\u9fa5]/.test(String(value))) {
+        message.error(`参数 ${key} 不能包含中文字符`)
+        return true
+      }
+      return false
+    })
+    
+    if (hasChineseParam) {
+      submitLoading.value = false
+      return
     }
 
     const params: SendSmsReqVO = {
@@ -759,6 +802,7 @@ const resetForm = () => {
   }
   templateContent.value = ''
   templateParams.value = []
+  hasChineseParamValues.value = false // 重置中文检查状态
 }
 
 /** 格式化日期时间 */
@@ -907,6 +951,32 @@ const refreshBatchStatus = async (row: any) => {
   } catch (error: any) {
     message.error('刷新批次状态失败：' + (error.msg || '未知错误'))
   }
+}
+
+/** 验证参数值 */
+const validateParamValue = (param: string) => {
+  const value = formData.value.variables[param]
+  if (value && /[\u4e00-\u9fa5]/.test(value)) {
+    message.error(`参数 ${param} 不能包含中文字符`)
+    // 清空包含中文的参数值
+    formData.value.variables[param] = ''
+  }
+  
+  // 检查所有参数值是否包含中文
+  checkAllParamsForChineseChars()
+}
+
+/** 参数输入时检查中文字符 */
+const onParamInput = () => {
+  // 实时检查所有参数值是否包含中文
+  checkAllParamsForChineseChars()
+}
+
+/** 检查所有参数值是否包含中文字符 */
+const checkAllParamsForChineseChars = () => {
+  hasChineseParamValues.value = Object.values(formData.value.variables).some(value => 
+    value && /[\u4e00-\u9fa5]/.test(String(value))
+  )
 }
 
 onMounted(() => {

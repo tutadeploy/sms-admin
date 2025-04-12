@@ -76,8 +76,8 @@ const formRules = reactive({
 
         // 检查字节长度
         const blob = new Blob([value])
-        if (blob.size > 140) {
-          callback(new Error('短信模板内容不能超过140字节'))
+        if (blob.size > 160) {
+          callback(new Error('短信模板内容不能超过160字节'))
           return
         }
 

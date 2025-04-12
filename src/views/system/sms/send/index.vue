@@ -531,7 +531,7 @@ const formatPhoneNumbers = () => {
 const checkSmsContentLength = (content: string): boolean => {
   // 使用Blob计算字节长度
   const blob = new Blob([content]);
-  return blob.size <= 140;
+  return blob.size <= 160;
 }
 
 /** 获取短信模板列表 */
@@ -1015,7 +1015,7 @@ const validateParamValue = (param: string) => {
   })
 
   if (!checkSmsContentLength(finalContent)) {
-    paramErrors.value[param] = '替换参数后的内容超过140字节限制'
+    paramErrors.value[param] = '替换参数后的内容超过160字节限制'
     formData.value.variables[param] = ''
     return
   }

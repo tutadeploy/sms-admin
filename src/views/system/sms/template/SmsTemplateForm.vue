@@ -14,7 +14,7 @@
       v-loading="formLoading"
     >
       <el-form-item label="模板名称" prop="name">
-        <el-input v-model="formData.name" placeholder="请输入模板名称" />
+        <el-input v-model="formData.name" placeholder="请输入模板名称" @input="validateForm" />
       </el-form-item>
       <el-form-item label="模板内容" prop="content">
         <el-input
@@ -28,7 +28,7 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button type="primary" @click="submitForm" :disabled="formLoading || hasChineseChars"> 确 定 </el-button>
+        <el-button type="primary" @click="submitForm" :disabled="formLoading || hasChineseChars || !isFormValid"> 确 定 </el-button>
         <el-button @click="dialogVisible = false">取 消</el-button>
       </div>
     </template>
@@ -73,13 +73,22 @@ const formRules = reactive({
           callback(new Error('短信模板内容不允许包含中文字符'))
           return
         }
+
+        // 检查字节长度
+        const blob = new Blob([value])
+        if (blob.size > 140) {
+          callback(new Error('短信模板内容不能超过140字节'))
+          return
+        }
+
         callback()
       }, 
-      trigger: 'blur' 
+      trigger: ['blur', 'input'] 
     }
   ]
 })
 const formRef = ref() // 表单 Ref
+const isFormValid = ref(false) // 表单验证状态
 
 /** 打开弹窗 */
 const open = async (type: string, id?: number) => {
@@ -111,12 +120,24 @@ const generateTemplateId = (): string => {
   return `SMS_${Date.now()}_${Math.floor(Math.random() * 10000)}`
 }
 
+/** 验证表单 */
+const validateForm = async () => {
+  if (!formRef.value) return false
+  try {
+    await formRef.value.validate()
+    isFormValid.value = true
+    return true
+  } catch (error) {
+    isFormValid.value = false
+    return false
+  }
+}
+
 /** 提交表单 */
 const emit = defineEmits(['success']) // 定义 success 事件，用于操作成功后的回调
 const submitForm = async () => {
   // 校验表单
-  if (!formRef.value) return
-  await formRef.value.validate()
+  if (!await validateForm()) return
   // 提交请求
   formLoading.value = true
   try {
@@ -186,11 +207,14 @@ const extractVariables = (content: string) => {
 }
 
 /** 内容输入时检查中文字符 */
-const onContentInput = (value: string) => {
+const onContentInput = async (value: string) => {
   // 检查内容中是否包含中文字符
   hasChineseChars.value = /[\u4e00-\u9fa5]/.test(value)
   
   // 提取变量
   extractVariables(value)
+  
+  // 验证表单
+  await validateForm()
 }
 </script>

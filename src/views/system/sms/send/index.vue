@@ -326,12 +326,20 @@
             @blur="validateParamValue(param)"
             @input="onParamInput"
           />
+          <div v-if="paramErrors[param]" class="param-error">{{ paramErrors[param] }}</div>
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false" :disabled="submitLoading">取消</el-button>
-          <el-button type="primary" @click="submitForm" :loading="submitLoading" :disabled="submitLoading || hasChineseParamValues">发送</el-button>
+          <el-button 
+            type="primary" 
+            @click="submitForm" 
+            :loading="submitLoading" 
+            :disabled="submitLoading || hasChineseParamValues || !isFormValid"
+          >
+            发送
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -501,6 +509,8 @@ const templateContent = ref('')
 const templateParams = ref<string[]>([])
 const templateLoading = ref(false)
 const hasChineseParamValues = ref(false) // 是否有参数值包含中文字符
+const isFormValid = ref(false) // 表单验证状态
+const paramErrors = ref<Record<string, string>>({}) // 参数错误信息
 
 /** 禁用今天之后的日期 */
 const disabledDate = (time: Date) => {
@@ -517,11 +527,11 @@ const formatPhoneNumbers = () => {
   }
 }
 
-/** 检查短信内容长度是否超过160字节 */
+/** 检查短信内容长度是否超过140字节 */
 const checkSmsContentLength = (content: string): boolean => {
   // 使用Blob计算字节长度
   const blob = new Blob([content]);
-  return blob.size <= 160;
+  return blob.size <= 140;
 }
 
 /** 获取短信模板列表 */
@@ -773,9 +783,9 @@ const submitForm = async () => {
       throw new Error('请选择国家')
     }
     
-    // 3. 检查短信内容长度不超过160字节
+    // 3. 检查短信内容长度不超过140字节
     if (templateContent.value && !checkSmsContentLength(templateContent.value)) {
-      message.error('短信内容超过160字节限制，请缩减内容长度')
+      message.error('短信内容超过140字节限制，请缩减内容长度')
       submitLoading.value = false
       return
     }
@@ -986,30 +996,56 @@ const refreshBatchStatus = async (row: any) => {
   }
 }
 
-/** 验证参数值 */
+/** 验证参数值并检查总长度 */
 const validateParamValue = (param: string) => {
   const value = formData.value.variables[param]
+  paramErrors.value[param] = '' // 清除之前的错误
+
   if (value && /[\u4e00-\u9fa5]/.test(value)) {
-    message.error(`参数 ${param} 不能包含中文字符`)
+    paramErrors.value[param] = '参数不能包含中文字符'
     // 清空包含中文的参数值
     formData.value.variables[param] = ''
+    return
   }
-  
-  // 检查所有参数值是否包含中文
-  checkAllParamsForChineseChars()
+
+  // 检查替换参数后的总长度
+  let finalContent = templateContent.value
+  Object.entries(formData.value.variables).forEach(([key, val]) => {
+    finalContent = finalContent.replace(`{{${key}}}`, val || '')
+  })
+
+  if (!checkSmsContentLength(finalContent)) {
+    paramErrors.value[param] = '替换参数后的内容超过140字节限制'
+    formData.value.variables[param] = ''
+    return
+  }
+
+  // 验证表单
+  validateForm()
 }
 
-/** 参数输入时检查中文字符 */
+/** 参数输入时检查 */
 const onParamInput = () => {
-  // 实时检查所有参数值是否包含中文
-  checkAllParamsForChineseChars()
-}
-
-/** 检查所有参数值是否包含中文字符 */
-const checkAllParamsForChineseChars = () => {
+  // 检查所有参数值不包含中文
   hasChineseParamValues.value = Object.values(formData.value.variables).some(value => 
     value && /[\u4e00-\u9fa5]/.test(String(value))
   )
+
+  // 验证表单
+  validateForm()
+}
+
+/** 验证表单 */
+const validateForm = async () => {
+  if (!formRef.value) return false
+  try {
+    await formRef.value.validate()
+    isFormValid.value = true
+    return true
+  } catch (error) {
+    isFormValid.value = false
+    return false
+  }
 }
 
 onMounted(() => {
@@ -1092,5 +1128,12 @@ onMounted(() => {
     justify-content: flex-end;
     gap: 10px;
   }
+}
+
+.param-error {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--el-color-danger);
 }
 </style>

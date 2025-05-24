@@ -253,6 +253,7 @@
             v-model="formData.channelId"
             placeholder="请选择渠道类型"
             class="!w-full"
+            :loading="channelLoading"
             @change="handleChannelChange"
           >
             <el-option
@@ -347,12 +348,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import {  SendSmsReqVO } from '@/api/system/sms/smsTemplate/index'
 import * as SmsTemplateApi from '@/api/system/sms/smsTemplate/index'
 import { checkBalanceSufficient, refreshBalance, getBalance } from '@/utils/balanceService'
 import { useMessage } from '@/hooks/web/useMessage' 
 import dayjs from 'dayjs'
+import { getSmsChannelList, type SmsChannelVO } from '@/api/system/sms/channel'
 
 defineOptions({ name: 'SystemSmsSend' })
 
@@ -422,8 +424,9 @@ const messageStatusOptions = [
   { label: '发送失败', value: 'failed' }
 ]
 
-// 渠道选项
-const channelOptions = [{ label: '线路一', value: 'onbuka' }]
+// 替换硬编码的渠道选项
+const channelOptions = ref<{ label: string; value: string }[]>([])
+const channelLoading = ref(false)
 
 // 表单数据
 const formData = ref<{
@@ -525,6 +528,8 @@ const formatPhoneNumbers = () => {
   } else {
     formData.value.recipients = []
   }
+  // 手机号修改后触发表单验证
+  validateForm()
 }
 
 /** 检查短信内容长度是否超过140字节 */
@@ -568,15 +573,17 @@ const getTemplateDetail = async (templateId: number) => {
 }
 
 /** 模板选择改变 */
-const handleTemplateChange = (value: number | '') => {
+const handleTemplateChange = async (value: number | '') => {
   if (typeof value === 'number') {
-    getTemplateDetail(value)
+    await getTemplateDetail(value)
   } else {
     templateContent.value = ''
     templateParams.value = []
     formData.value.variables = {}
     hasChineseParamValues.value = false // 重置中文检查状态
   }
+  // 模板选择改变后触发表单验证
+  await validateForm()
 }
 
 /** 获取批次列表 */
@@ -746,6 +753,8 @@ const backToBatchList = () => {
 const openSendDialog = () => {
   dialogVisible.value = true
   resetForm()
+  // 初始状态下表单无效
+  isFormValid.value = false
 }
 
 /** 提交表单 */
@@ -768,9 +777,11 @@ const submitForm = async () => {
     
     // 2. 检查余额是否充足（根据号码数量计算所需费用）
     const requiredBalance = formData.value.recipients.length * 0.04
-    const currentBalance = await getBalance()
+    // 根据渠道ID判断使用哪个渠道的余额
+    const channelType = formData.value.channelId.toLowerCase().includes('smpp') ? 'smpp' : 'buka'
+    const currentBalance = await getBalance(channelType)
     if (currentBalance < requiredBalance) {
-      message.error(`您当前有${formData.value.recipients.length}条号码，余额${currentBalance.toFixed(2)}元只支持发送${Math.floor(currentBalance / 0.04)}条，请进行删减或者充值`)
+      message.error(`您当前有${formData.value.recipients.length}条号码，${channelType.toUpperCase()}渠道余额${currentBalance.toFixed(2)}元只支持发送${Math.floor(currentBalance / 0.04)}条，请进行删减或者充值`)
       submitLoading.value = false
       return
     }
@@ -823,10 +834,8 @@ const submitForm = async () => {
     dialogVisible.value = false
     getBatchList()
   } catch (error: any) {
-    // 显示错误消息
     message.error(error.msg || '发送失败')
   } finally {
-    // 无论成功或失败，最后都关闭加载状态
     submitLoading.value = false
   }
 }
@@ -846,6 +855,17 @@ const resetForm = () => {
   templateContent.value = ''
   templateParams.value = []
   hasChineseParamValues.value = false // 重置中文检查状态
+  isFormValid.value = false // 重置表单验证状态
+  paramErrors.value = {} // 清空错误提示
+  
+  // 打印表单和验证状态
+  console.log('表单已重置', {
+    formData: formData.value,
+    isFormValid: isFormValid.value,
+    submitLoading: submitLoading.value,
+    hasChineseParamValues: hasChineseParamValues.value,
+    '发送按钮是否禁用': submitLoading.value || hasChineseParamValues.value || !isFormValid.value
+  })
 }
 
 /** 格式化日期时间 */
@@ -869,35 +889,92 @@ const formatDateTime = (dateTimeStr: string) => {
   }
 }
 
+/** 获取渠道列表 */
+const getChannelList = async () => {
+  channelLoading.value = true
+  try {
+    const res = await getSmsChannelList()
+    console.log('渠道列表API响应:', res) // 添加日志，查看完整响应
+    
+    // 检查返回数据格式是否符合预期
+    if (!res || !res.list) {
+      // 响应格式不符合预期
+      console.error('渠道列表返回格式异常:', res)
+      message.warning('获取渠道列表失败，返回数据格式异常')
+      return
+    }
+    
+    // 只显示启用的渠道
+    channelOptions.value = res.list
+      .filter(channel => channel.status === 1)
+      .map(channel => ({
+        label: channel.name,
+        value: channel.code
+      }))
+    
+    console.log('处理后的渠道选项:', channelOptions.value) // 调试信息
+    
+    // 如果没有可用渠道则显示提示
+    if (channelOptions.value.length === 0) {
+      message.warning('没有可用的短信渠道')
+    }
+  } catch (error: any) {
+    console.error('获取渠道列表失败:', error) // 输出完整错误对象
+    // 不再显示错误弹窗，避免重复警告
+  } finally {
+    channelLoading.value = false
+  }
+}
+
 /** 渠道选择改变 */
 const handleChannelChange = async (channelId: string) => {
   if (!channelId) {
     countryOptions.value = []
     formData.value.countryCode = ''
     formData.value.providerId = 0
+    await validateForm() // 清空渠道后验证表单
     return
   }
   try {
-    // 根据渠道ID设置providerId，数据库ID从1开始，所以这里+1
-    const channelIndex = channelOptions.findIndex(channel => channel.value === channelId)
-    formData.value.providerId = channelIndex !== -1 ? channelIndex + 1 : 1
+    // 根据渠道代码找到对应的渠道信息
+    const channel = channelOptions.value.find(ch => ch.value === channelId)
+    if (channel) {
+      try {
+        // 从渠道列表中获取对应的渠道信息
+        const res = await getSmsChannelList()
+        if (res && res.list) {
+          const channelInfo = res.list.find(ch => ch.code === channelId)
+          if (channelInfo) {
+            formData.value.providerId = channelInfo.providerId
+          }
+        }
+      } catch (err) {
+        console.error('获取渠道详情失败:', err)
+        // 使用前端缓存的channelId作为备选方案
+        const index = channelOptions.value.findIndex(ch => ch.value === channelId)
+        formData.value.providerId = index + 1 // 兼容旧逻辑，使用索引+1作为providerId
+      }
+    }
     
     countryLoading.value = true
     const res = await SmsTemplateApi.getSupportCountries(channelId)
     countryOptions.value = res
   } catch (error: any) {
+    console.error('获取支持的国家列表失败:', error)
     message.error('获取支持的国家列表失败：' + (error.msg || '未知错误'))
   } finally {
     countryLoading.value = false
+    await validateForm() // 获取完国家列表后验证表单
   }
 }
 
 /** 国家选择改变 */
-const handleCountryChange = (countryCode: string) => {
+const handleCountryChange = async (countryCode: string) => {
   if (!countryCode) {
     phoneNumbersInput.value = ''
     formData.value.recipients = []
   }
+  await validateForm() // 国家选择改变后验证表单
 }
 
 /** 获取状态类型 */
@@ -1041,16 +1118,34 @@ const validateForm = async () => {
   try {
     await formRef.value.validate()
     isFormValid.value = true
+    console.log('表单验证通过，isFormValid =', isFormValid.value)
+    console.log('按钮状态:', {
+      submitLoading: submitLoading.value,
+      hasChineseParamValues: hasChineseParamValues.value,
+      isFormValid: isFormValid.value,
+      '最终禁用状态': submitLoading.value || hasChineseParamValues.value || !isFormValid.value
+    })
     return true
   } catch (error) {
     isFormValid.value = false
+    console.log('表单验证失败，isFormValid =', isFormValid.value, error)
     return false
   }
 }
 
+// 监听重要字段变化时验证表单
+watch([() => formData.value.channelId, () => formData.value.countryCode, () => formData.value.templateId, () => phoneNumbersInput.value], async () => {
+  console.log('关键字段发生变化，重新验证表单')
+  await validateForm()
+}, { deep: true })
+
 onMounted(() => {
+  // 初始化时设置表单验证状态为false
+  isFormValid.value = false
+  
   // 初始化时 queryParams 已包含默认日期范围，直接查询
   getBatchList()
+  getChannelList()
   getTemplateList()
 })
 </script>

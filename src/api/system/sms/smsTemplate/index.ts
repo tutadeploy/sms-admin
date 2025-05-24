@@ -185,9 +185,19 @@ export interface BukaBalanceVO {
   balance: number
 }
 
+/** SMPP 余额响应 */
+export interface SmppBalanceVO {
+  balance: number
+}
+
 /** 获取 Buka 余额 */
 export const getBukaBalance = () => {
   return request.get<BukaBalanceVO>({ url: '/api/channels/buka/balance' })
+}
+
+/** 获取 SMPP 余额 */
+export const getSmppBalance = () => {
+  return request.get<SmppBalanceVO>({ url: '/api/channels/smpp/balance' })
 }
 
 /** 刷新批次状态 */
